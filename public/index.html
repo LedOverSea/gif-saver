@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>xgif — X GIF 保存器</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --fg:#e6e9ef; --muted:#8b93a3; --accent:#4c8dff; --ok:#38c172; --warn:#e3b341; --err:#f05252;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  }
+  header{
+    display:flex; align-items:center; gap:10px; padding:14px 20px;
+    border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:20;
+  }
+  header h1{margin:0; font-size:17px; letter-spacing:.5px}
+  header h1 span{color:var(--accent)}
+  .sub{color:var(--muted); font-size:12px}
+  .spacer{flex:1}
+  .dir{color:var(--muted); font-size:12px; max-width:38vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  main{max-width:1080px; margin:0 auto; padding:20px}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:18px}
+  textarea{
+    width:100%; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:8px;
+    padding:10px 12px; font:inherit; resize:vertical; outline:none;
+  }
+  textarea:focus{border-color:var(--accent)}
+  button{
+    background:var(--panel2); color:var(--fg); border:1px solid var(--line); border-radius:8px;
+    padding:7px 14px; font:inherit; cursor:pointer; transition:.15s;
+  }
+  button:hover{border-color:var(--accent)}
+  button:disabled{opacity:.45; cursor:not-allowed}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  button.primary:hover{filter:brightness(1.1)}
+  .row{display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap}
+  .hint{color:var(--muted); font-size:12px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px}
+  .meta{display:flex; gap:10px; align-items:flex-start; margin-bottom:12px}
+  .avatar{width:38px; height:38px; border-radius:50%; background:var(--panel2); flex:none}
+  .meta .who{font-weight:600}
+  .meta .text{color:var(--muted); font-size:13px; word-break:break-word}
+  .items{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px}
+  .item{background:var(--panel2); border-radius:10px; overflow:hidden; border:1px solid var(--line)}
+  .item .thumb{position:relative; background:#000; aspect-ratio:16/10; display:flex; align-items:center; justify-content:center}
+  .item .thumb img,.item .thumb video{max-width:100%; max-height:100%; display:block}
+  .item .info{display:flex; align-items:center; gap:8px; padding:8px 10px; flex-wrap:wrap}
+  .badge{background:var(--accent); color:#fff; border-radius:5px; padding:1px 7px; font-size:11px}
+  .badge.video{background:#6b46c1}
+  .badge.photo{background:#2f855a}
+  .dims{color:var(--muted); font-size:12px}
+  .grow{flex:1}
+  .bar{height:3px; background:var(--line); overflow:hidden}
+  .bar i{display:block; height:100%; width:0; background:var(--accent); transition:width .12s linear}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px}
+  .tile{background:var(--panel2); border:1px solid var(--line); border-radius:10px; overflow:hidden; cursor:pointer}
+  .tile:hover{border-color:var(--accent)}
+  .tile .box{aspect-ratio:1; display:flex; align-items:center; justify-content:center; background:#000; overflow:hidden}
+  .tile img,.tile video{width:100%; height:100%; object-fit:cover}
+  .tile .cap{display:flex; align-items:center; gap:6px; padding:6px 8px; font-size:11px; color:var(--muted)}
+  .tile .cap .nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  button.mini{padding:2px 8px; font-size:11px; border-radius:6px}
+  select{background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:3px 6px; font:inherit; font-size:12px; outline:none}
+  select:focus{border-color:var(--accent)}
+  .gifopts{margin-top:12px; padding-top:10px; border-top:1px dashed var(--line)}
+  .gifopts label{display:inline-flex; align-items:center; gap:5px; color:var(--muted); font-size:12px}
+  .gifopts input[type=checkbox]{accent-color:var(--accent); margin:0}
+  .libhead{display:flex; align-items:center; margin-bottom:12px}
+  .libhead h2{margin:0; font-size:15px}
+  .empty{color:var(--muted); font-size:13px; padding:8px 2px}
+  #toast{position:fixed; left:50%; bottom:28px; transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; z-index:50}
+  .msg{background:var(--panel2); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:8px; padding:9px 14px; max-width:70vw; box-shadow:0 8px 24px #0008}
+  .msg.err{border-left-color:var(--err)}
+  .msg.ok{border-left-color:var(--ok)}
+  #modal{position:fixed; inset:0; background:#000c; display:flex; align-items:center; justify-content:center; z-index:60; padding:24px}
+  #modal[hidden]{display:none}
+  .modalbox{position:relative; max-width:min(900px,92vw); max-height:88vh}
+  .modalbox video,.modalbox img{max-width:100%; max-height:84vh; border-radius:10px; display:block}
+  .modalbox button{position:absolute; top:-38px; right:0}
+  .spin{display:inline-block; width:12px; height:12px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:sp .7s linear infinite; vertical-align:-1px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>xgif<span>.</span></h1>
+  <span class="sub">从 X 链接保存原始 GIF / 视频（MP4）</span>
+  <div class="spacer"></div>
+  <span class="dir" id="dir"></span>
+  <button id="reveal">打开文件夹</button>
+</header>
+
+<main>
+  <section class="panel">
+    <textarea id="input" rows="2" placeholder="在这里粘贴 X 推文链接，例如 https://x.com/i/status/2101055391488696737&#10;可一次粘多条，每行一条"></textarea>
+    <div class="row">
+      <button id="go" class="primary">解析</button>
+      <button id="clip">读剪贴板</button>
+      <button id="clear">清空结果</button>
+      <span class="hint">也可以直接把链接拖到页面上</span>
+    </div>
+    <div class="row gifopts">
+      <span class="hint">转 GIF 设置</span>
+      <label>宽度
+        <select id="gifW">
+          <option value="240">240</option>
+          <option value="320" selected>320</option>
+          <option value="480">480</option>
+          <option value="0">原始</option>
+        </select>
+      </label>
+      <label>帧率
+        <select id="gifFps">
+          <option value="10">10</option>
+          <option value="12" selected>12</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+        </select>
+      </label>
+      <label>时长上限
+        <select id="gifDur">
+          <option value="3">3 秒</option>
+          <option value="6" selected>6 秒</option>
+          <option value="10">10 秒</option>
+          <option value="0">全部</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="gifDither" checked> 抖动（色彩更细腻，体积略大）</label>
+      <span id="gifStatus" class="hint"></span>
+    </div>
+  </section>
+
+  <section id="results"></section>
+
+  <section class="panel">
+    <div class="libhead">
+      <h2>已保存</h2>
+      <div class="spacer"></div>
+      <button id="refresh">刷新</button>
+    </div>
+    <div id="library" class="grid"></div>
+    <div id="libempty" class="empty">还没有保存任何文件。</div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<div id="modal" hidden><div class="modalbox"><button id="closeModal">关闭 ✕</button><div id="modalBody"></div></div></div>
+
+<script type="module">
+import { convertVideoToGif } from './convert.js';
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (n) => n == null ? '?' : n < 1024 ? n + ' B' : n < 1048576 ? (n/1024).toFixed(1) + ' KB' : (n/1048576).toFixed(1) + ' MB';
+
+function toast(text, kind = '') {
+  const el = document.createElement('div');
+  el.className = 'msg ' + kind;
+  el.textContent = text;
+  $('#toast').appendChild(el);
+  setTimeout(() => el.remove(), kind === 'err' ? 6500 : 3200);
+}
+
+/* ------------------------------------------------------------- 解析推文 */
+
+function itemHtml(item, base) {
+  const badge = item.kind === 'gif' ? '<span class="badge">GIF</span>'
+              : item.kind === 'video' ? '<span class="badge video">视频</span>'
+              : '<span class="badge photo">图片</span>';
+  const dims = item.width ? '<span class="dims">' + item.width + '×' + item.height + '</span>' : '';
+  const dur = item.duration ? '<span class="dims">' + item.duration.toFixed(1) + 's</span>' : '';
+  const media = item.kind === 'photo'
+    ? '<img src="' + esc(item.preview) + '" loading="lazy" alt="">'
+    : '<video src="' + esc(item.preview) + '" poster="' + esc(item.poster) + '" preload="none" controls muted playsinline></video>';
+  // 视频/GIF 才有「转 GIF」；已经是静态图的没必要
+  const toGif = item.kind === 'photo'
+    ? ''
+    : '<button class="togif" data-src="' + esc(item.preview) + '" data-name="' + esc(base) + '.gif">转 GIF</button>';
+  return '<div class="item" data-index="' + item.index + '">'
+       +   '<div class="thumb">' + media + '</div>'
+       +   '<div class="bar"><i></i></div>'
+       +   '<div class="info">' + badge + dims + dur
+       +     '<span class="grow"></span>'
+       +     toGif
+       +     '<button class="save">保存</button>'
+       +   '</div>'
+       + '</div>';
+}
+
+function renderTweet(t) {
+  const card = document.createElement('article');
+  card.className = 'card';
+  card.dataset.url = t.url;
+  const base = (t.author.screen_name || 'x') + '-' + t.id;
+  card.innerHTML =
+      '<div class="meta">'
+    +   (t.author.avatar ? '<img class="avatar" src="' + esc(t.author.avatar) + '" alt="">' : '<div class="avatar"></div>')
+    +   '<div><div class="who">' + esc(t.author.name || t.author.screen_name || '')
+    +     ' <span class="dims">@' + esc(t.author.screen_name) + '</span></div>'
+    +     '<div class="text">' + esc(t.text).slice(0, 220) + '</div></div>'
+    + '</div>'
+    + (t.items.length
+        ? '<div class="items">' + t.items.map((i) => itemHtml(i, base)).join('') + '</div>'
+        : '<div class="empty">这条推文里没有可下载的媒体。</div>')
+    + '<div class="row"><button class="saveAll primary">全部保存</button>'
+    +   '<button class="openOne">在 X 上打开</button></div>';
+
+  card.querySelectorAll('.item .save').forEach((btn) => {
+    btn.addEventListener('click', () => saveOne(card, [Number(btn.closest('.item').dataset.index)]));
+  });
+  card.querySelectorAll('.item .togif').forEach((btn) => {
+    const bar = btn.closest('.item').querySelector('.bar i');
+    btn.addEventListener('click', () => {
+      const setPct = (p) => { bar.style.width = Math.round(p * 100) + '%'; };
+      btn.disabled = true;
+      doConvert(btn.dataset.src, btn.dataset.name, (p, phase) => {
+        setPct(p);
+        $('#gifStatus').textContent = phase || '转码中';
+      }).finally(() => {
+        btn.disabled = false;
+        $('#gifStatus').textContent = '';
+        setTimeout(() => setPct(0), 1500);
+      });
+    });
+  });
+  const all = card.querySelector('.saveAll');
+  if (!t.items.length) all.disabled = true;
+  all.addEventListener('click', () => saveOne(card, t.items.map((i) => i.index)));
+  card.querySelector('.openOne').addEventListener('click', () => window.open(t.url, '_blank'));
+  $('#results').prepend(card);
+}
+
+async function doParse(urls) {
+  const list = urls.map((s) => s.trim()).filter(Boolean);
+  if (!list.length) return toast('先粘贴一个 X 链接', 'err');
+  for (const url of list) {
+    const btn = $('#go');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span> 解析中';
+    try {
+      const r = await fetch('/api/parse?url=' + encodeURIComponent(url));
+      const j = await r.json();
+      if (!j.ok) {
+        toast('解析失败：' + j.error + (j.network ? '\n提示：翻墙通道可能没生效。' : ''), 'err');
+      } else if (!j.items.length) {
+        toast('这条推文没有可下载的媒体', 'err');
+      } else {
+        renderTweet(j);
+        toast('解析成功：' + (j.author.screen_name ? '@' + j.author.screen_name : j.id), 'ok');
+      }
+    } catch (e) {
+      toast('请求失败：' + e.message, 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '解析';
+    }
+  }
+  $('#input').value = '';
+}
+
+/* --------------------------------------------------------------- 下载 */
+
+function paintProgress(card, pct) {
+  card.querySelectorAll('.item .bar i').forEach((b) => { b.style.width = pct + '%'; });
+}
+
+async function saveOne(card, indexes) {
+  const url = card.dataset.url;
+  const btns = card.querySelectorAll('button');
+  btns.forEach((b) => (b.disabled = true));
+  paintProgress(card, 0);
+
+  let failed = 0;
+  try {
+    const res = await fetch('/api/save', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-xgif': '1' },
+      body: JSON.stringify({ url, indexes }),
+    });
+    if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim();
+        buf = buf.slice(i + 1);
+        if (!line) continue;
+        const ev = JSON.parse(line);
+        if (ev.type === 'progress' && ev.total) paintProgress(card, Math.round((ev.received / ev.total) * 100));
+        else if (ev.type === 'done') { paintProgress(card, 100); toast('已保存 ' + ev.file + '（' + fmt(ev.size) + '）', 'ok'); }
+        else if (ev.type === 'error') { failed++; toast('保存失败：' + ev.message, 'err'); }
+      }
+    }
+    if (!failed) loadLibrary();
+  } catch (e) {
+    toast('保存请求失败：' + e.message, 'err');
+  } finally {
+    btns.forEach((b) => (b.disabled = false));
+    setTimeout(() => paintProgress(card, 0), 1200);
+  }
+}
+
+/* --------------------------------------------------------------- 转 GIF */
+
+async function doConvert(srcUrl, outName, onProgress) {
+  try {
+    const r0 = await convertVideoToGif(srcUrl, {
+      maxWidth: Number($('#gifW').value) || 0,
+      fps: Number($('#gifFps').value) || 12,
+      maxDuration: Number($('#gifDur').value) || 0,
+      dither: $('#gifDither').checked,
+      onProgress,
+    });
+    const { bytes, width: w, height: h, frames: count, duration: dur } = r0;
+
+    const r = await fetch('/api/save-gif?name=' + encodeURIComponent(outName), {
+      method: 'POST',
+      headers: { 'content-type': 'image/gif', 'x-xgif': '1' },
+      body: bytes,
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || '保存失败');
+
+    const overLimit = j.size > 5 * 1048576;
+    let msg = `已生成 ${j.file}　${w}×${h}　${count} 帧　${dur.toFixed(1)}s　${fmt(j.size)}`;
+    if (overLimit) msg += '\n超过 QQ 自定义表情约 5MB 的上限，建议把宽度调到 240 或降低帧率。';
+    toast(msg, overLimit ? 'err' : 'ok');
+    loadLibrary();
+    return j;
+  } catch (e) {
+    toast('转 GIF 失败：' + e.message, 'err');
+    throw e;
+  }
+}
+
+/* --------------------------------------------------------- 已保存的画廊 */
+
+async function loadLibrary() {
+  try {
+    const j = await (await fetch('/api/library')).json();
+    $('#dir').textContent = j.dir;
+    const box = $('#library');
+    box.innerHTML = '';
+    $('#libempty').hidden = j.items.length > 0;
+    for (const it of j.items) {
+      const href = '/media/' + encodeURIComponent(it.name);
+      const isGif = /\.gif$/i.test(it.name);
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.title = it.name + '\n' + fmt(it.size);
+      // 视频用 #t=0.5 让浏览器解码第一帧当缩略图，不需要额外生成图片
+      tile.innerHTML = '<div class="box">'
+        + (it.isVideo
+            ? '<video src="' + href + '#t=0.5" preload="metadata" muted playsinline></video>'
+            : '<img src="' + href + '" loading="lazy" alt="">')
+        + '</div>'
+        + '<div class="cap"><span class="nm">' + esc(it.name) + '</span>'
+        + (isGif ? '<button class="mini copy" title="把 GIF 文件本身放进剪贴板">复制</button>' : '')
+        + (it.isVideo ? '<button class="mini togif2">转 GIF</button>' : '')
+        + '</div>';
+
+      tile.querySelector('.box').addEventListener('click', () => openModal(href, it.isVideo));
+
+      const cp = tile.querySelector('.copy');
+      if (cp) {
+        cp.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          cp.disabled = true;
+          try {
+            const r = await fetch('/api/copy-file', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json', 'x-xgif': '1' },
+              body: JSON.stringify({ name: it.name }),
+            });
+            const jj = await r.json();
+            if (!jj.ok) throw new Error(jj.error);
+            toast('GIF 文件已复制，去 QQ 里 Ctrl+V 即可（' + it.name + '）', 'ok');
+          } catch (err) {
+            toast('复制失败：' + err.message, 'err');
+          } finally {
+            cp.disabled = false;
+          }
+        });
+      }
+
+      const tg = tile.querySelector('.togif2');
+      if (tg) {
+        tg.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          tg.disabled = true;
+          try {
+            await doConvert(href, it.name.replace(/\.mp4$/i, '') + '.gif', (p, phase) => {
+              tile.style.setProperty('--p', Math.round(p * 100) + '%');
+              $('#gifStatus').textContent = phase || '';
+            });
+          } catch {
+            /* 已在 doConvert 里提示 */
+          } finally {
+            tg.disabled = false;
+            $('#gifStatus').textContent = '';
+          }
+        });
+      }
+
+      box.appendChild(tile);
+    }
+  } catch (e) {
+    toast('读取列表失败：' + e.message, 'err');
+  }
+}
+
+function openModal(src, isVideo) {
+  $('#modalBody').innerHTML = isVideo
+    ? '<video src="' + src + '" controls autoplay playsinline></video>'
+    : '<img src="' + src + '" alt="">';
+  $('#modal').hidden = false;
+}
+$('#closeModal').addEventListener('click', () => { $('#modal').hidden = true; $('#modalBody').innerHTML = ''; });
+$('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') $('#closeModal').click(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#closeModal').click(); });
+
+/* ------------------------------------------------------------- 交互绑定 */
+
+$('#go').addEventListener('click', () => doParse($('#input').value.split('\n')));
+$('#input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doParse($('#input').value.split('\n')); }
+});
+$('#input').addEventListener('paste', (e) => {
+  const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+  setTimeout(() => { if (/\/status(?:es)?\/\d+/.test(text)) doParse([text.trim()]); }, 60);
+});
+$('#clear').addEventListener('click', () => { $('#results').innerHTML = ''; });
+$('#refresh').addEventListener('click', loadLibrary);
+$('#reveal').addEventListener('click', async () => {
+  try { await fetch('/api/reveal', { method: 'POST', headers: { 'x-xgif': '1' } }); }
+  catch (e) { toast('打开文件夹失败：' + e.message, 'err'); }
+});
+$('#clip').addEventListener('click', async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text.trim()) return toast('剪贴板是空的', 'err');
+    $('#input').value = text.trim();
+    doParse(text.split('\n'));
+  } catch {
+    toast('读不到剪贴板，请手动 Ctrl+V 粘贴', 'err');
+  }
+});
+
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => {
+  e.preventDefault();
+  const text = e.dataTransfer.getData('text') || '';
+  const found = text.match(/https?:\/\/(?:www\.)?(?:x|twitter)\.com\/\S+/g);
+  if (found) doParse(found);
+  else toast('没有识别到 X 链接', 'err');
+});
+
+loadLibrary();
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "name": "xgif",
+  "version": "1.0.0",
+  "description": "从 X (Twitter) 链接保存原始 GIF / 视频 (MP4) / 图片 — 命令行 + 本地 Web 界面，零依赖",
+  "type": "module",
+  "bin": {
+    "xgif": "./xgif.mjs"
+  },
+  "files": [
+    "xgif.mjs",
+    "xgif.cmd",
+    "ui.mjs",
+    "xgif-ui.cmd",
+    "public/",
+    "README.md"
+  ],  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node ui.mjs",
+    "ui": "node ui.mjs",
+    "cli": "node xgif.mjs",
+    "test": "node test/smoke.mjs && node test/gif-smoke.mjs && node test/ui-smoke.mjs && node test/browser-e2e.mjs",
+    "test:cli": "node test/smoke.mjs",
+    "test:gif": "node test/gif-smoke.mjs",
+    "test:ui": "node test/ui-smoke.mjs",
+    "test:browser": "node test/browser-e2e.mjs"
+  },
+  "keywords": [
+    "twitter",
+    "x",
+    "gif",
+    "downloader",
+    "cli",
+    "web-ui",
+    "no-dependencies"
+  ],
+  "license": "MIT"
+}
